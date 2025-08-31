@@ -198,7 +198,7 @@ class Game {
     #player = null;
     #events = new Array();
     #levels = new Array();
-    #levelNumber = 0;
+    #levelNumber = 1;
     #gameControls = null;
     #menuControls = null;
     #allControls = null;
@@ -210,10 +210,14 @@ class Game {
     #frameCount = 0;
     #fps = 0;
     #showState = false;
+    #score = 0;
+    #immortalityMode = false;
 
     #music = null;
-    #sound = null;
-    #soundSrc = "";
+    // #sound = null;
+    #soundSrcIncScore = "";
+    #soundSrcGameOver = "";
+    #soundSrcNextLevel = "";
     #playMusic = false;
     #playEffects = true;
 
@@ -222,6 +226,7 @@ class Game {
         this.#music = new Audio("./sound/music/pixel-dreams-20240608-165735.mp3");
         this.#music.volume = 0.1;
         this.#music.loop = true;
+
         // this.#music.addEventListener('ended', () => {
         //     if (this.#playMusic) {
         //         this.#music.paly();
@@ -229,13 +234,19 @@ class Game {
         // });
 
         // this.#sound = new Audio("./stuff/effects/zvonkiy-schelchok.mp3");
-        this.#soundSrc = "./sound/effects/zvonkiy-schelchok.mp3";
-        this.#sound = new Audio("./sound/effects/zvonkiy-schelchok.mp3");
-        this.#sound.volume = 0.5;
+        this.#soundSrcIncScore = "./sound/effects/zvonkiy-schelchok.mp3";
+        // this.#sound = new Audio("./sound/effects/zvonkiy-schelchok.mp3");
+        // this.#sound.volume = 0.5;
+        this.#soundSrcGameOver = "./sound/effects/zvuk-dlya-arkadnoy-igryi-konets-igryi-30123.mp3";
+        this.#soundSrcNextLevel = "./sound/effects/otkryitie-novogo-predmeta-v-igre.mp3";
 
         this.#canvas = document.getElementById("canvas");
-        this.#canvas.width = 1024;
-        this.#canvas.height = 768;
+        this.#canvas.width = 1280;//1024;
+        this.#canvas.height = 720;//768;
+        // 1024*768
+        // HD 1280×720 (16:9)
+        // WXGA 1366×768 (16:9)
+        // Full HD 1920×1080 (16:9)
 
         this.#context = this.#canvas.getContext("2d");
         this.#context.fillStyle = this.#backgroundColor; // strokeStyle
@@ -249,11 +260,24 @@ class Game {
         // this.#player = new Snake(this.#field, this.#events, startX, startY, 0, "^>v<", 6.2, 3);
         // this.#player.putOnField(true);
 
+        // this.#levels = [
+        //     levelData(8, 4, 9, 7, 10, 6.0), // 81
+        //     levelData(10, 5, 7, 5, 15, 6.2), // 81
+        //     levelData(13, 5, 5, 5, 18, 6.4), // 79
+        //     levelData(16, 6, 4, 4, 21, 6.6), // 81
+        //     levelData(20, 8, 3, 3, 25, 6.8) // 81
+        // ];
+        // (9+1)*8+1 = 81
+        // (7+1)*10+1 = 81
+        // (5+1)*13+1 = 79
+        // (4+1)*16+1 = 81
+        // (3+1)*20+1 = 81
         this.#levels = [
-            levelData(8, 4, 9, 7, 10, 6.0),
-            levelData(10, 5, 7, 5, 15, 6.2),
-            levelData(13, 5, 5, 5, 15, 6.2),
-            levelData(20, 8, 3, 3, 25, 6.5)
+            levelData(10, 4, 9, 7, 15, 6.0),
+            levelData(13, 5, 7, 5, 18, 6.2),
+            levelData(17, 6, 5, 4, 22, 6.4),
+            levelData(21, 6, 4, 4, 25, 6.6),
+            levelData(26, 8, 3, 3, 35, 6.8)
         ];
 
         this.#generateLevel2(this.#levels[0]);
@@ -269,7 +293,8 @@ class Game {
             "ArrowLeft": () => { this.#player.direction = 3; },
 
             // temp
-            "Enter": () => { this.#player.grow(); },
+            "KeyG": () => { this.#player.grow(); }, // "Enter"
+            "KeyI": () => { this.#immortalityMode = !this.#immortalityMode; },
             "Equal": () => { this.#player.speed += 0.1; }, // "+"
             "Minus": () => { this.#player.speed -= 0.1; } // "-"
         };
@@ -278,13 +303,23 @@ class Game {
             // "Space": () => { this.#playPause(); },
             "KeyP": () => { this.#playPause(); },
             "Backquote": () => { this.#showState = !this.#showState; }, // "`"
-            "Space": () => { this.#isRunning = true; },
+            "Space": () => {
+                this.#isRunning = true;
+                // this.#playMusic2();
+            },
 
             // temp
             "Numpad1": () => { this.#nextLevel(); }, // "End"
             "Numpad7": () => { this.#newGame(); }, // "Home"
 
-            "KeyM": () => { this.#playStopMusic(); }
+            "KeyM": () => { this.#playStopMusic(); },
+            "KeyB": () => {
+                if (document.body.style.backgroundColor === "black") {
+                    document.body.style.backgroundColor = "white";
+                } else {
+                    document.body.style.backgroundColor = "black";
+                }
+            }
         };
 
         // this.#canvas.onclick = (event) => { this.#playPause(); }
@@ -311,6 +346,10 @@ class Game {
     //     this.animationId = null;
     // }
 
+    #playMusic2() {
+        this.#playMusic = true;
+        this.#music.play();
+    }
     #playStopMusic() {
         this.#playMusic = !this.#playMusic;
         if (this.#playMusic) {
@@ -345,34 +384,47 @@ class Game {
     #drawField() {
         // this.#context.save();
         // this.#context.fillStyle = this.#player.hasStuck ? "red" : this.#fontColor;
+        const dy = Math.round((this.#canvas.height - (this.#field.height+3) * this.#fontHeight) / 2);
+        const dx = Math.round((this.#canvas.width - this.#field.width * this.#fontWidth) / 2);
         for (let y = 0; y < this.#field.height; y++) {
             for (let x = 0; x < this.#field.width; x++) {
                 this.#context.fillStyle = this.#field.cell(x, y).color;
                 this.#context.fillText(
                     this.#field.cell(x, y).skin,
-                    x*this.#fontWidth, y*this.#fontHeight
+                    dx + x*this.#fontWidth,
+                    dy + y*this.#fontHeight
                 );
             }
         }
         // this.#context.restore();
     }
     #drawState(timestamp) {
-        if (!this.#showState) {
-            return;
-        }
-
         this.#context.fillStyle = this.#fontColor;// this.#player.hasStuck ? "red" : "lime";
         // this.#context.font = `30px Consolas, monospace`;
-        this.#context.textBaseline = "bottom";
-        this.#context.fillText(
-            // `map size: ${this.#map[0].length}*${this.#map.length}, `+
-            `${this.#isRunning ? "play" : "pause"}, `+
-            `snake len: ${this.#player.length}, `+
-            `speed: ${Math.round(this.#player.speed*10) / 10}, `+
-            `FPS: ${Math.round(this.#fps*10)/10}, `+
-            `timestamp: ${Math.round(timestamp)}`,// ${performance.now()}`+
-            0, this.#canvas.height
+        // this.#context.textBaseline = "bottom";
+        let stateAdd = "";
+        if (this.#showState) {
+            stateAdd = (
+                // `map size: ${this.#map[0].length}*${this.#map.length}, `+
+                // `snake len: ${this.#player.length}, `+
+                " | "+
+                `FPS: ${Math.round(this.#fps*10)/10} | `+
+                `timestamp: ${Math.round(timestamp)} `+// ${performance.now()}`+
+                `${this.#isRunning ? "|>" : "||"}`
+            );
+        }
+        const text = (
+            `Score: ${this.#score} | `+
+            `Level: ${this.#levelNumber} | `+
+            `Speed: ${Math.round(this.#player.speed*10) / 10}`+
+            stateAdd
         );
+
+        const x = Math.round((this.#canvas.width - this.#context.measureText(text).width) / 2);
+        // const y = (this.#field.height+1) * this.#fontHeight; // this.#canvas.height;
+        const y = Math.round((this.#canvas.height - (this.#field.height+3) * this.#fontHeight) / 2) +
+            (this.#field.height+1) * this.#fontHeight;
+        this.#context.fillText(text, x, y);
     }
     #updateScreen(timestamp) {
         this.#context.save();
@@ -421,6 +473,13 @@ class Game {
         // this.#animationId = requestAnimationFrame(timestamp => { this.test(timestamp); });
         this.#animationId = requestAnimationFrame(this.#loopTick.bind(this));
     }
+    #playEffect(src) {
+        if (this.#playEffects) {
+            const sound = new Audio(src);
+            sound.volume = src !== this.#soundSrcGameOver ? 0.4 : 0.1;
+            return sound.play();
+        }
+    }
     #processEvents() {
         for (const event of this.#events) {
         // while (this.#events.length !== 0) {
@@ -428,20 +487,49 @@ class Game {
             console.log(event);
             switch (event) {
             case "grow":
-                if (this.#playEffects) {
-                    // this.#sound.play();
-                    const sound = new Audio(this.#soundSrc);
-                    sound.volume = 0.5;
-                    sound.play();
-                }
+                this.#playEffect(this.#soundSrcIncScore);
+                this.#score++;
                 break;
             case "finish":
                 // alert("next level");
-                this.#nextLevel();
+                // this.#playEffect(this.#soundSrcNextLevel);
+                // this.#nextLevel();
+
+                this.#isRunning = false;
+                playSoundAndWait(this.#soundSrcNextLevel, 0.4)
+                    .then(() => {
+                        this.#nextLevel();
+                    });
                 break;
             case "game over":
-                alert("Game over.");
-                this.#newGame();
+                if (!this.#immortalityMode) {
+                    // this.#isRunning = false;
+                    // this.#playEffect(this.#soundSrcGameOver);
+                    // alert(`Game over. Your score: ${this.#score}`);
+                    // this.#newGame();
+
+                    this.#isRunning = false;
+                    playSoundAndWait(this.#soundSrcGameOver, 0.1)
+                        .then(() => {
+                            alert(`Game over. Your score: ${this.#score}`);
+                            this.#newGame();
+                        });
+
+                    // this.#playEffect(this.#soundSrcGameOver)
+                    //     .then((result) => {
+                    //         alert(`Game over. Your score: ${this.#score}`);
+                    //         this.#newGame();
+                    //     });
+                    // if (this.#playEffects) {
+                    //     const sound = new Audio(this.#soundSrcGameOver);
+                    //     sound.volume = 0.1;
+                    //     sound.addEventListener("ended", () => {
+                    //         alert(`Game over. Your score: ${this.#score}`);
+                    //         this.#newGame();
+                    //     });
+                    //     sound.play();
+                    // }
+                }
                 break;
             }
         }
@@ -449,21 +537,25 @@ class Game {
     }
 
     #newGame() {
-        this.#levelNumber = -1;
+        this.#score = 0;
+        this.#levelNumber = 0;
         this.#nextLevel();
     }
     #nextLevel() {
+        // if (this.#playMusic) { // ?
+        //     this.#music.play();
+        // }
         this.#levelNumber++;
-        if (this.#levelNumber < this.#levels.length) {
+        if (this.#levelNumber-1 < this.#levels.length) {
             this.#isRunning = false;
-            this.#generateLevel2(this.#levels[this.#levelNumber]);
+            this.#generateLevel2(this.#levels[this.#levelNumber-1]);
             alert(
-                `Level ${this.#levelNumber+1}. `+
+                `Level ${this.#levelNumber}. `+
                 "Close this message and press Space to start. "+
-                "Go to the red X."
+                "Go to the red X. (mute music: M)"
             );
         } else {
-            alert("You won! Congratulations!");
+            alert(`You won! Congratulations! Your score: ${this.#score}`);
             this.#newGame();
         }
     }
@@ -475,13 +567,15 @@ class Game {
     #generateLevel(fieldWidth, fieldHeight, cellWidth, cellHeight, foodCount, speed) {
         this.#field.import(
             generateField(fieldWidth, fieldHeight, cellWidth, cellHeight, fieldWidth-1, fieldHeight-1));
-        this.#generateFood(foodCount);
 
         const startX = fieldWidth * (cellWidth+1) - 1 - Math.floor(cellWidth / 2);
         const startY = fieldHeight * (cellHeight+1) - 1;
         this.#player = new Snake( // TODO:
             this.#field, this.#events, startX, startY, 0, "^>v<", speed, 3, "rgba(0, 255, 255, 1)"
         );
+        // this.#score = 0;
+
+        this.#generateFood(foodCount);
     }
     #generateFood(count) {
         while (count !== 0) {
@@ -527,8 +621,8 @@ function point(x, y) {
 }
 
 function generateMaze(width, height, startX = 0, startY = 0) {
-    const mazeCell = (up = true, left = true, visited = false, distance = 0) => {
-        return { up, left, visited, distance };
+    const mazeCell = (up = true, left = true, visited = false, distance = 0, isDeadEnd = false) => {
+        return { up, left, visited, distance, isDeadEnd };
     }
 
     const maze = new Array(height);
@@ -587,6 +681,7 @@ function generateMaze(width, height, startX = 0, startY = 0) {
             if (backPath.length === 0) {
                 break;
             }
+            // cell(curPos).isDeadEnd = true;
             curPos = backPath.pop();
             distance--;
         }
@@ -628,6 +723,9 @@ function generateField(mazeWidth, mazeHeight, cellWidth, cellHeight, startX = 0,
             // if (isCorner && _x < mazeWidth && _y < mazeHeight) {
             //     field[y+0][x+0] = unit(`${maze[_y][_x].distance}`);
             // }
+            // if (isCorner && _x < mazeWidth && _y < mazeHeight && maze[_y][_x].isDeadEnd) {
+            //     field[y+0][x+0] = unit('*', "wall", "blue");
+            // }
 
             if (_x === finish.x && _y === finish.y) {
                 const __x = _x*(cellWidth+1) + Math.floor((cellWidth + 1) / 2);
@@ -640,6 +738,19 @@ function generateField(mazeWidth, mazeHeight, cellWidth, cellHeight, startX = 0,
     return field;
 }
 
+async function playSoundAndWait(src, volume) {
+    const sound = new Audio(src);
+    sound.volume = volume;
+    try {
+        await sound.play();
+        await new Promise(resolve => {
+            sound.addEventListener('ended', resolve, { once: true });
+        });
+    } catch (error) {
+        
+    }
+}
+
 
 function main() {
     const game = new Game();
@@ -648,72 +759,6 @@ function main() {
 
 document.addEventListener("DOMContentLoaded", main);
 
-
-// ███╗   ███╗ █████╗ ███████╗██╗███╗   ██╗ ██████╗     ███████╗███╗   ██╗ █████╗ ██╗  ██╗███████╗
-// ████╗ ████║██╔══██╗╚══███╔╝██║████╗  ██║██╔════╝     ██╔════╝████╗  ██║██╔══██╗██║ ██╔╝██╔════╝
-// ██╔████╔██║███████║  ███╔╝ ██║██╔██╗ ██║██║  ███╗    ███████╗██╔██╗ ██║███████║█████╔╝ █████╗  
-// ██║╚██╔╝██║██╔══██║ ███╔╝  ██║██║╚██╗██║██║   ██║    ╚════██║██║╚██╗██║██╔══██║██╔═██╗ ██╔══╝  
-// ██║ ╚═╝ ██║██║  ██║███████╗██║██║ ╚████║╚██████╔╝    ███████║██║ ╚████║██║  ██║██║  ██╗███████╗
-// ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝╚═╝  ╚═══╝ ╚═════╝     ╚══════╝╚═╝  ╚═══╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝
-
-
-// ▄████████ ▄████████  ▄████████ ▄█   ▄█▄ ▄██   ▄█   ▄████████     ▄████████  ▄████████  ▄████████  ▄████████ 
-// ███    ███ ███    ███ ███    ███ ███ ▄███▀ ███   ███   ███    ███    ███    ███ ███    ███ ███    ███ ███    ███ 
-// ███    █▀  ███    ███ ███    █▀  ███▐██▀   ███   ███   ███    ███    ███    ███ ███    ███ ███    █▀  ███    █▀  
-// ███        ███    ███ ███        ▄█████▀   ███   ███  ▄███▄▄▄▄██▀    ███    ███ ███    ███ ███        ███       
-// ███        ███    ███ ███       ▀▀█████▄   ███   ███ ▀▀███▀▀▀▀▀    ▀███████████ ███    ███ ███        ███       
-// ███    █▄  ███    ███ ███    █▄  ███▐██▄   ███   ███ ▀███████████    ███    ███ ███    ███ ███    █▄  ███    █▄  
-// ███    ███ ███    ███ ███    ███ ███ ▀███▄  ███   ███   ███    ███    ███    ███ ███    ███ ███    ███ ███    ███ 
-// ████████▀  ██████████ ████████▀  ███   ▀█▀  ██████▀    ███    ███    ███    █▀  ██████████ ████████▀  ██████████ 
-//                                           ▀            ███    ███                                                
-
-// ░░███╗░░  ░█████╗░  ███████╗  ██╗  ███╗░░██╗ ░██████╗  ███████╗  ███╗░░██╗ ░█████╗░ ██╗░░██╗ ███████╗
-// ░████║░░  ██╔══██╗  ╚══███╔╝  ██║  ████╗░██║ ██╔════╝  ██╔════╝  ████╗░██║ ██╔══██╗ ██║░██╔╝ ██╔════╝
-// ██╔██║░░  ███████║  ░░███╔╝░  ██║  ██╔██╗██║ ██║░░██╗  █████╗░░  ██╔██╗██║ ███████║ █████═╝░ █████╗░░
-// ╚═╝██║░░  ██╔══██║  ░███╔╝░░  ██║  ██║╚████║ ██║░░╚██╗  ██╔══╝░░  ██║╚████║ ██╔══██║ ██╔═██╗░ ██╔══╝░░
-// ███████╗  ██║░░██║  ███████╗  ██║  ██║░╚███║ ╚██████╔╝  ███████╗  ██║░╚███║ ██║░░██║ ██║░╚██╗ ███████╗
-// ╚══════╝  ╚═╝░░╚═╝  ╚══════╝  ╚═╝  ╚═╝░░╚══╝ ░╚═════╝░  ╚══════╝  ╚═╝░░╚══╝ ╚═╝░░╚═╝ ╚═╝░░╚═╝ ╚══════╝
-
-// #     #    #    #     #  #####  #     #   #####   #     #  #####  #     #  ######  
-// ##   ##   # #   ##    # #     # #     #  #     #  #     # #     # #     # #     # 
-// # # # #  #   #  # #   # #       #     #  #        #     # #       #     # #     # 
-// #  #  # #     # #  #  # #       #######  #        #######  #####  ####### ######  
-// #     # ####### #   # # #       #     #  #        #     #       # #     # #       
-// #     # #     # #    ## #     # #     #  #     #  #     # #     # #     # #       
-// #     # #     # #     #  #####  #     #   #####   #     #  #####  #     # #       
-
-// ╔══════════════════════════════════════════════════════════════╗
-// ║  ███╗   ███╗ █████╗ ███████╗██╗███╗   ██╗ ██████╗          ║
-// ║  ████╗ ████║██╔══██╗╚══███╔╝██║████╗  ██║██╔════╝          ║
-// ║  ██╔████╔██║███████║  ███╔╝ ██║██╔██╗ ██║██║  ███╗         ║
-// ║  ██║╚██╔╝██║██╔══██║ ███╔╝  ██║██║╚██╗██║██║   ██║         ║
-// ║  ██║ ╚═╝ ██║██║  ██║███████╗██║██║ ╚████║╚██████╔╝         ║
-// ║  ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝╚═╝  ╚═══╝ ╚═════╝          ║
-// ║                                                              ║
-// ║  ███████╗███╗   ██╗ █████╗ ██╗  ██╗███████╗                 ║
-// ║  ██╔════╝████╗  ██║██╔══██╗██║ ██╔╝██╔════╝                 ║
-// ║  ███████╗██╔██╗ ██║███████║█████╔╝ █████╗                   ║
-// ║  ╚════██║██║╚██╗██║██╔══██║██╔═██╗ ██╔══╝                   ║
-// ║  ███████║██║ ╚████║██║  ██║██║  ██╗███████╗                 ║
-// ║  ╚══════╝╚═╝  ╚═══╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝                 ║
-// ╚══════════════════════════════════════════════════════════════╝
-
-
-// ╔═════════════════════════════════════════════════════╗
-// ║  ███╗   ███╗ █████╗ ███████╗██╗███╗   ██╗ ██████╗   ║
-// ║  ████╗ ████║██╔══██╗╚══███╔╝██║████╗  ██║██╔════╝   ║
-// ║  ██╔████╔██║███████║  ███╔╝ ██║██╔██╗ ██║██║  ███╗  ║
-// ║  ██║╚██╔╝██║██╔══██║ ███╔╝  ██║██║╚██╗██║██║   ██║  ║
-// ║  ██║ ╚═╝ ██║██║  ██║███████╗██║██║ ╚████║╚██████╔╝  ║
-// ║  ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝╚═╝  ╚═══╝ ╚═════╝   ║
-// ║                                                     ║
-// ║     ███████╗███╗   ██╗ █████╗ ██╗  ██╗███████╗      ║
-// ║     ██╔════╝████╗  ██║██╔══██╗██║ ██╔╝██╔════╝      ║
-// ║     ███████╗██╔██╗ ██║███████║█████╔╝ █████╗        ║
-// ║     ╚════██║██║╚██╗██║██╔══██║██╔═██╗ ██╔══╝        ║
-// ║     ███████║██║ ╚████║██║  ██║██║  ██╗███████╗      ║
-// ║     ╚══════╝╚═╝  ╚═══╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝      ║
-// ╚═════════════════════════════════════════════════════╝
 
 
 const logo = [
@@ -733,3 +778,36 @@ const logo = [
     "║     ╚══════╝╚═╝  ╚═══╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝      ║",
     "╚═════════════════════════════════════════════════════╝"
 ];
+
+
+// ╔═════════════════════════════════════════════════════╗
+// ║  ███╗   ███╗ █████╗ ███████╗██╗███╗   ██╗ ██████╗   ║
+// ║  ████╗ ████║██╔══██╗╚══███╔╝██║████╗  ██║██╔════╝   ║
+// ║  ██╔████╔██║███████║  ███╔╝ ██║██╔██╗ ██║██║  ███╗  ║
+// ║  ██║╚██╔╝██║██╔══██║ ███╔╝  ██║██║╚██╗██║██║   ██║  ║
+// ║  ██║ ╚═╝ ██║██║  ██║███████╗██║██║ ╚████║╚██████╔╝  ║
+// ║  ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝╚═╝  ╚═══╝ ╚═════╝   ║
+// ║                                                     ║
+// ║     ███████╗███╗   ██╗ █████╗ ██╗  ██╗███████╗      ║
+// ║     ██╔════╝████╗  ██║██╔══██╗██║ ██╔╝██╔════╝      ║
+// ║     ███████╗██╔██╗ ██║███████║█████╔╝ █████╗        ║
+// ║     ╚════██║██║╚██╗██║██╔══██║██╔═██╗ ██╔══╝        ║
+// ║     ███████║██║ ╚████║██║  ██║██║  ██╗███████╗      ║
+// ║     ╚══════╝╚═╝  ╚═══╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝      ║
+// ╚═════════════════════════════════════════════════════╝
+
+
+// ███╗   ███╗ █████╗ ███████╗██╗███╗   ██╗ ██████╗     ███████╗███╗   ██╗ █████╗ ██╗  ██╗███████╗
+// ████╗ ████║██╔══██╗╚══███╔╝██║████╗  ██║██╔════╝     ██╔════╝████╗  ██║██╔══██╗██║ ██╔╝██╔════╝
+// ██╔████╔██║███████║  ███╔╝ ██║██╔██╗ ██║██║  ███╗    ███████╗██╔██╗ ██║███████║█████╔╝ █████╗  
+// ██║╚██╔╝██║██╔══██║ ███╔╝  ██║██║╚██╗██║██║   ██║    ╚════██║██║╚██╗██║██╔══██║██╔═██╗ ██╔══╝  
+// ██║ ╚═╝ ██║██║  ██║███████╗██║██║ ╚████║╚██████╔╝    ███████║██║ ╚████║██║  ██║██║  ██╗███████╗
+// ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝╚═╝  ╚═══╝ ╚═════╝     ╚══════╝╚═╝  ╚═══╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝
+
+
+// ░░███╗░░  ░█████╗░  ███████╗  ██╗  ███╗░░██╗ ░██████╗  ███████╗  ███╗░░██╗ ░█████╗░ ██╗░░██╗ ███████╗
+// ░████║░░  ██╔══██╗  ╚══███╔╝  ██║  ████╗░██║ ██╔════╝  ██╔════╝  ████╗░██║ ██╔══██╗ ██║░██╔╝ ██╔════╝
+// ██╔██║░░  ███████║  ░░███╔╝░  ██║  ██╔██╗██║ ██║░░██╗  █████╗░░  ██╔██╗██║ ███████║ █████═╝░ █████╗░░
+// ╚═╝██║░░  ██╔══██║  ░███╔╝░░  ██║  ██║╚████║ ██║░░╚██╗  ██╔══╝░░  ██║╚████║ ██╔══██║ ██╔═██╗░ ██╔══╝░░
+// ███████╗  ██║░░██║  ███████╗  ██║  ██║░╚███║ ╚██████╔╝  ███████╗  ██║░╚███║ ██║░░██║ ██║░╚██╗ ███████╗
+// ╚══════╝  ╚═╝░░╚═╝  ╚══════╝  ╚═╝  ╚═╝░░╚══╝ ░╚═════╝░  ╚══════╝  ╚═╝░░╚══╝ ╚═╝░░╚═╝ ╚═╝░░╚═╝ ╚══════╝

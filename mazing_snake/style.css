@@ -20,6 +20,7 @@ body {
     flex-direction: column;
     /* overflow: hidden; */
     /* background-color: #353535; */
+    background-color: black;
 }
 
 #canvas2 {
