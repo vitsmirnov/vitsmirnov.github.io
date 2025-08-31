@@ -1,0 +1,46 @@
+/*
+(c) Vitaly Smirnov [VSdev]
+mrmaybelately@gmail.com
+https://github.com/vitsmirnov
+2024
+*/
+
+
+* {
+    margin: 0;
+    padding: 0;
+    /* -webkit-tap-highlight-color: transparent; */
+}
+
+body {
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    /* overflow: hidden; */
+    /* background-color: #353535; */
+}
+
+#canvas2 {
+    /* position: absolute; */
+    background-color: cadetblue;
+    /* background: red; */
+    /* color: cadetblue; */
+    width: 500px;/* 922px; */ /* 700px; */
+    height: 487px;/* 487px; */ /* 400px; */
+    /* top: 50px;
+    left: 50px; */
+
+    /* height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    overflow: hidden;
+    background-color: #353535; */
+}
+
+/* #sprites {
+    visibility: hidden;
+} */
